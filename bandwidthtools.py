@@ -1,5 +1,8 @@
 #!/usr/bin/env python
-""" Compute hourly, daily and monthly bandwidth alert limits from a montly usable bandwidth value"""
+"""
+    06/03/2013
+    Compute hourly, daily and monthly bandwidth alert limits from a montly usable bandwidth value
+"""
 import argparse
 
 
