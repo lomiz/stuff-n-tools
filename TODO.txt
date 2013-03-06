@@ -1,0 +1,20 @@
+- Disabilitare Selinux
+- Installare i seguenti pacchetti:
+	* screen
+	* iftop
+	* nmap
+	* iptraf
+	* vim
+- Disabilitare i seguenti servizi:
+	* NetworkManager
+	* autofs
+	* avahi-daemon
+	* anacron
+	* yum-updatesd
+	* ip6tables
+	* firstboot
+- Installare servizio NTP
+- Controllo versione OS
+CentOS release 5.8 (Final)
+CentOS release 6.3 (Final)
+
