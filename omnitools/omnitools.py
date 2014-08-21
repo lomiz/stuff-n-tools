@@ -11,7 +11,7 @@ import math
 __author__ = "Enrico lomiz Zimol"
 __credits__ = ["Giampaolo Rodola"]
 __license__ = "LGPL"
-__version__ = "0.5"
+__version__ = "0.5.2"
 __maintainer__ = "Enrico lomiz Zimol"
 __email__ = "enricoONEDOTzimolROUNDEDATgmailANOTHERDOTcom"
 __status__ = "Prototype"
@@ -57,7 +57,7 @@ class LatencyList:
     >>> l.add(23.1)
     >>> l.length()
     15
-    >>> len(l.get_used_latencies()) >= len(l.get_used_latencies(True))
+    >>> len(l.get_used_latencies())>=len(l.get_used_latencies(True))
     True
     >>> l.get_packetloss()
     0.375
@@ -110,9 +110,10 @@ class LatencyList:
         else:
             return self.latencies[-self.used_latencies:]
 
-    def crop_latencies(self, lat_list):
+    @staticmethod
+    def crop_latencies(lat_list):
         """
-        Return "list" with only latencies (exclude all None(s) that mean PacketLoss)
+        Return "lat_list" with only latencies excluding all None(s)(packets lost)
         """
         cropped_list = []
         for latency in lat_list:
@@ -126,9 +127,10 @@ class LatencyList:
         """
         return self.count_packetlost(self.get_used_latencies()) / float(self.used_latencies)
 
-    def count_packetlost(self, lat_list):
+    @staticmethod
+    def count_packetlost(lat_list):
         """
-        Return None(packetloss) counts in "list"
+        Return None(packetloss) counts in "lat_list"
         """
         counter = 0
         for latency in lat_list:
@@ -159,7 +161,7 @@ class LatencyList:
     def variations_sum(self):
         sm = 0  # somma scarti
         for variation in self.get_used_latencies(True):
-            sm = sm + ( (variation - self.average())**2)
+            sm += (variation - self.average())**2
         return sm
 
     def samp_std_dev(self):
