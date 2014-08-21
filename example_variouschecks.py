@@ -10,7 +10,7 @@ def checkUserExec(userid=0):
 
 
 def checkDistro(distros,release = None):
-    #implement me!!!
+    #implement me !!!
     return False
 
 
