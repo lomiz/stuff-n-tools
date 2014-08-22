@@ -5,8 +5,17 @@
     Date created: 17/12/2013
     Date last modified: 21/08/2014
     Python Version: 2.7.X
+    This module aims to offer a bunch of useful classes and functions for
+    scripting inside linux servers
 """
 import math
+import os
+import platform
+import logging
+import pwd
+#import smtplib
+#from email.mime.multipart import MIMEMultipart
+#from email.mime.text import MIMEText
 
 __author__ = "Enrico lomiz Zimol"
 __credits__ = ["Giampaolo Rodola"]
@@ -15,6 +24,209 @@ __version__ = "0.5.2"
 __maintainer__ = "Enrico lomiz Zimol"
 __email__ = "enricoONEDOTzimolROUNDEDATgmailANOTHERDOTcom"
 __status__ = "Prototype"
+
+
+DICT_CENTOS = {"CentOS": [
+               "5", "5.0", "5.1", "5.2", "5.3", "5.4", "5.5", "5.6", "5.7", "5.8", "5.9",
+               "6", "6.0", "6.1", "6.2", "6.3", "6.4", "6.5", "6.6", "6.7", "6.8", "6.9",
+               "7", "7.0", "7.1", "7.2", "7.3", "7.4", "7.5", "7.6", "7.7", "7.8", "7.9"
+              ]}
+
+DICT_REDHAT = {"Redhat": [
+               "5", "5.0", "5.1", "5.2", "5.3", "5.4", "5.5", "5.6", "5.7", "5.8", "5.9",
+               "6", "6.0", "6.1", "6.2", "6.3", "6.4", "6.5", "6.6", "6.7", "6.8", "6.9",
+               "7", "7.0", "7.1", "7.2", "7.3", "7.4", "7.5", "7.6", "7.7", "7.8", "7.9"
+              ]}
+DICT_SCIENT = {"Scientific Linux": [
+               "5", "5.0", "5.1", "5.2", "5.3", "5.4", "5.5", "5.6", "5.7", "5.8", "5.9",
+               "6", "6.0", "6.1", "6.2", "6.3", "6.4", "6.5", "6.6", "6.7", "6.8", "6.9",
+               "7", "7.0", "7.1", "7.2", "7.3", "7.4", "7.5", "7.6", "7.7", "7.8", "7.9"
+              ]}
+DICT_UBUNTU = {"Ubuntu": [
+               "10", "10.04", "10.10", "11", "11.04", "11.10",
+               "12", "12.04", "12.10", "13", "13.04", "13.10"
+              ]}
+
+
+def ensure_dir(dir_path, dir_permissions=0775):
+    """
+    Ensure directory existence creating it if necessary.
+
+    Arguments
+        dir_path: directory to check and create
+        dir_permission: permissions for that directory
+
+    Usage
+        ensure_dir("dir1/foo/", 0775)
+        ensure_dir("./dir2/foo/", 777)
+    """
+
+    # if path like /dir1/dir2/file3 it remove the file part
+    d = os.path.dirname(dir_path)
+    dp = dir_permissions
+
+    if not os.path.exists(d):
+        try:
+            logging.info("Directory %s does not exist, proceeding with creation", d)
+            os.makedirs(d)
+            logging.info("Directory %s created", d)
+            os.chmod(d, dp)
+            logging.info("Permessions %s changed", dp)
+        except OSError as e:
+            logging.error("Failed creation of %s with the following error:", d)
+            logging.error("%s %s", e[0], e[1])
+            raise  # Rilancio l'eccezione in modo che l'utilizzatore del modulo decida cosa fare
+    else:
+        try:
+            logging.info("Directory %s existing, setting permissions", d)
+            # Forzo i permessi con chmod in quanto su unix
+            # c'e' una maschera in fase di creazione
+            os.chmod(d, dp)
+            logging.info("Permessions %s changed", dp)
+        except OSError as e:
+            logging.error("Permissions %s not changed for the following error:", dp)
+            logging.error("%s %s", e[0], e[1])
+            raise  # Rilancio l'eccezione in modo che l'utilizzatore del modulo decida cosa fare
+
+
+def bytes2human(n, formatter="%(value)i%(symbol)s"):
+    """
+    Translate bytes values in easy human readable format
+    >>> bytes2human(10000)
+    '9K'
+    >>> bytes2human(100001221)
+    '95M'
+    """
+    symbols = ('B', 'K', 'M', 'G', 'T', 'P', 'E', 'Z', 'Y')
+    prefix = {}
+    for i, s in enumerate(symbols[1:]):
+        prefix[s] = 1 << (i+1)*10
+    for symbol in reversed(symbols[1:]):
+        if n >= prefix[symbol]:
+            value = float(n) / prefix[symbol]
+            return formatter % locals()
+    return formatter % dict(symbol=symbols[0], value=n)
+
+
+def human2bytes(s):
+    """
+    Translate human readable storage sizes in bytes
+    >>> human2bytes('1M')
+    1048576
+    >>> human2bytes('1G')
+    1073741824
+    """
+    symbols = ('B', 'K', 'M', 'G', 'T', 'P', 'E', 'Z', 'Y')
+    letter = s[-1:].strip().upper()
+    num = s[:-1]
+    assert num.isdigit() and letter in symbols
+    num = float(num)
+    prefix = {symbols[0]: 1}
+    for i, s in enumerate(symbols[1:]):
+        prefix[s] = 1 << (i+1)*10
+    return int(num * prefix[letter])
+
+
+def uid2username(userid):
+    """
+    Return username of given UserID
+    >>> uid2username(0)
+    'root'
+    """
+    return pwd.getpwuid(userid)[0]
+
+
+def username2uid(username):
+    """
+    Return UserID of given username
+    >>> username2uid("root")
+    0
+    """
+    return pwd.getpwnam(username)[2]
+
+
+def get_current_userid():
+    """
+    Return current UserID
+    """
+    return os.geteuid()
+
+
+def is_executed_by_user(u):
+    """
+    Check if the script was executed by passed user
+    Arguments
+        userid: userid or username to check
+    """
+    if isinstance(u, str):
+        user = username2uid(u)
+    elif isinstance(u, int):
+        user = u
+    else:
+        return False
+    if get_current_userid() != user:
+        return False
+    else:
+        return True
+
+
+def is_executed_by_root():
+    """
+    Check if the script was executed by root
+    """
+    return is_executed_by_user(0)
+
+
+def is_distro(distros=None, dont_check_version=False):
+    """
+    Check if the current linux distribution is in a specified distros
+    dictionary
+    Arguments
+        distros: a dictionary of distributions or a list of
+                 them with which will be made the check
+        dont_check_version: if True prevent to checking version
+    """
+    # Se non e' stato inserito alcun dizionario
+    if distros is None:
+        return False
+    # Se e' un dizionario usiamo quello inserito dall'utente
+    elif isinstance(distros, dict):
+        distros_dict = distros
+    # Se l'utente inserisce una lista di dizionari, usiamo un super dizionario creato dalla somma degli stessi
+    elif isinstance(distros, list):
+        distros_dict = {}
+        for distro in distros:
+            distros_dict.update(distro)
+    else:
+        raise TypeError("distros should be dict or list of dicts")
+
+    # Ottengo tupla dati distribuzione e taglio il non necessario
+    current_distro_string = list(platform.linux_distribution())[:2]
+
+    # Primo valore tupla: nome distribuzione
+    # Secondo valore tupla: versione distribuzione
+    cur_dis_name = current_distro_string[0]
+    cur_dis_ver = current_distro_string[1]
+
+    #if distros_dict.has_key(cur_dis_name): "has_key DEPRECATED - better form with "in"
+    if cur_dis_name in distros_dict:
+    #Se nel dizionario delle distribuzioni valide e' presente quella corrente..
+        if dont_check_version or (cur_dis_ver in distros_dict.get(cur_dis_name)):
+            # Se non devo controllare la versione OPPURE la versione corrente
+            # e' presente  nella lista del dizionario distribuzioni valide
+            return True
+        else:
+            return False
+    else:
+        return False
+
+
+def is_vsdistro():
+    """
+    Check if current distro is in the Vulcania System distros list
+    """
+    return is_distro([DICT_CENTOS, DICT_REDHAT, DICT_SCIENT])
+
 
 # TODO LatencyList
 # Using decorators or @propriety force used_latencies to be less or equal of max_width
@@ -147,7 +359,9 @@ class LatencyList:
         self.latencies.pop(0)
 
     def average(self):
-        return round(reduce(lambda x, y: x + y / float(len(self.get_used_latencies(True))), self.get_used_latencies(True), 0),5)
+        return round(reduce(
+            lambda x, y: x + y / float(len(self.get_used_latencies(True))), self.get_used_latencies(True),
+            0), 5)
 
     def length(self):
         return len(self.latencies)
@@ -168,10 +382,16 @@ class LatencyList:
         """
         Standard Deviation of a Sample
         """
-        return math.sqrt( self.variations_sum() / (len(self.get_used_latencies(True))-1) )
+        return math.sqrt(self.variations_sum() / (len(self.get_used_latencies(True))-1))
 
     def pop_std_dev(self):
         """
         Standard Deviation of a Population
         """
         return math.sqrt(self.variations_sum()/len(self.get_used_latencies(True)))
+
+       
+if __name__ == "__main__":
+    import doctest
+    doctest.testmod()
+
