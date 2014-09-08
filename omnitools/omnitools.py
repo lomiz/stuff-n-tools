@@ -26,26 +26,11 @@ __email__ = "enricoONEDOTzimolROUNDEDATgmailANOTHERDOTcom"
 __status__ = "Prototype"
 
 
-DICT_CENTOS = {"CentOS": [
-               "5", "5.0", "5.1", "5.2", "5.3", "5.4", "5.5", "5.6", "5.7", "5.8", "5.9",
-               "6", "6.0", "6.1", "6.2", "6.3", "6.4", "6.5", "6.6", "6.7", "6.8", "6.9",
-               "7", "7.0", "7.1", "7.2", "7.3", "7.4", "7.5", "7.6", "7.7", "7.8", "7.9"
-              ]}
-
-DICT_REDHAT = {"Redhat": [
-               "5", "5.0", "5.1", "5.2", "5.3", "5.4", "5.5", "5.6", "5.7", "5.8", "5.9",
-               "6", "6.0", "6.1", "6.2", "6.3", "6.4", "6.5", "6.6", "6.7", "6.8", "6.9",
-               "7", "7.0", "7.1", "7.2", "7.3", "7.4", "7.5", "7.6", "7.7", "7.8", "7.9"
-              ]}
-DICT_SCIENT = {"Scientific Linux": [
-               "5", "5.0", "5.1", "5.2", "5.3", "5.4", "5.5", "5.6", "5.7", "5.8", "5.9",
-               "6", "6.0", "6.1", "6.2", "6.3", "6.4", "6.5", "6.6", "6.7", "6.8", "6.9",
-               "7", "7.0", "7.1", "7.2", "7.3", "7.4", "7.5", "7.6", "7.7", "7.8", "7.9"
-              ]}
-DICT_UBUNTU = {"Ubuntu": [
-               "10", "10.04", "10.10", "11", "11.04", "11.10",
-               "12", "12.04", "12.10", "13", "13.04", "13.10"
-              ]}
+# Only pretty recent distros
+DICT_CENTOS = {"CentOS": ["5", "6", "7"]}
+DICT_REDHAT = {"Redhat": ["5", "6", "7"]}
+DICT_SCIENT = {"Scientific Linux": ["5", "6", "7"]}
+DICT_UBUNTU = {"Ubuntu": ["11", "11.04", "11.10", "12", "12.04", "12.10", "13", "13.04", "13.10"]}
 
 
 def ensure_dir(dir_path, dir_permissions=0775):
@@ -177,43 +162,53 @@ def is_executed_by_root():
     return is_executed_by_user(0)
 
 
-def is_distro(distros=None, dont_check_version=False):
+def is_distro(distros=None, check_version=True, check_minor_release=False):
     """
     Check if the current linux distribution is in a specified distros
     dictionary
     Arguments
-        distros: a dictionary of distributions or a list of
-                 them with which will be made the check
-        dont_check_version: if True prevent to checking version
+        distros: a dictionary of distributions or a list of them with which will be made the check
+                 NB: in dictionary definition you HAVE to put also MAJOR/MAIN version, example:
+                     {"Ubuntu": ["12.10"]} is wrong
+                     {"Ubuntu": ["12", "12.10"]} is right
+        check_version: if True checks major version like 5 (Default: True)
+        check_minor_release: if True check also the minor release part of the version like 5.6
     """
-    # Se non e' stato inserito alcun dizionario
+    # No dictionary passed to the function
     if distros is None:
         return False
-    # Se e' un dizionario usiamo quello inserito dall'utente
+    # If a dictionary was passed to the function we use it
     elif isinstance(distros, dict):
         distros_dict = distros
-    # Se l'utente inserisce una lista di dizionari, usiamo un super dizionario creato dalla somma degli stessi
+    # If we have a dictionary list we create a super dictionary forged by them sum
     elif isinstance(distros, list):
         distros_dict = {}
         for distro in distros:
             distros_dict.update(distro)
     else:
-        raise TypeError("distros should be dict or list of dicts")
+        raise TypeError("Distros should be dict or list of dicts")
 
-    # Ottengo tupla dati distribuzione e taglio il non necessario
+    # Getting tuple in the ("Centos", 5.6") style cutting the codename version
     current_distro_string = list(platform.linux_distribution())[:2]
 
-    # Primo valore tupla: nome distribuzione
-    # Secondo valore tupla: versione distribuzione
+    # Distro name
     cur_dis_name = current_distro_string[0]
+    # Complete version with also minor release (example 5.6)
     cur_dis_ver = current_distro_string[1]
+    # Only main/major version (if 6.2 we get 6)
+    cur_dir_major_ver = cur_dis_ver.split('.', 1)[0]
+
+    # Based on the "check_minor_release" boolean with choose what kind of version we have to find
+    if check_minor_release:
+        checking_version = cur_dis_ver
+    else:
+        checking_version = cur_dir_major_ver
 
     #if distros_dict.has_key(cur_dis_name): "has_key DEPRECATED - better form with "in"
     if cur_dis_name in distros_dict:
-    #Se nel dizionario delle distribuzioni valide e' presente quella corrente..
-        if dont_check_version or (cur_dis_ver in distros_dict.get(cur_dis_name)):
-            # Se non devo controllare la versione OPPURE la versione corrente
-            # e' presente  nella lista del dizionario distribuzioni valide
+    #If there is a key with distro name in the dictionary..
+        if not check_version or (checking_version in distros_dict.get(cur_dis_name)):
+            # If we dont have to check the distro version OR if the current version is in the dictionary
             return True
         else:
             return False
