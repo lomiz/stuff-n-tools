@@ -279,8 +279,11 @@ class LatencyList:
     15.65
     """
 
-    def __init__(self, latencies=[], used_latencies=15):
-        self.latencies = latencies
+    def __init__(self, latencies=None, used_latencies=15):
+        if not latencies:
+            self.latencies = []
+        else:
+            self.latencies = list(latencies)
         self.max_width = 50
         self.used_latencies = used_latencies
 
@@ -390,7 +393,7 @@ class LatencyList:
         """
         return math.sqrt(self.variations_sum()/len(self.get_used_latencies(True)))
 
-       
+
 if __name__ == "__main__":
     import doctest
     doctest.testmod()
