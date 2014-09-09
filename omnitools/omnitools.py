@@ -38,8 +38,8 @@ def ensure_dir(dir_path, dir_permissions=0775):
     Ensure directory existence creating it if necessary.
 
     Arguments
-        dir_path: directory to check and create
-        dir_permission: permissions for that directory
+        dir_path -- directory to check and create
+        dir_permission -- permissions for that directory
 
     Usage
         ensure_dir("dir1/foo/", 0775)
@@ -60,18 +60,18 @@ def ensure_dir(dir_path, dir_permissions=0775):
         except OSError as e:
             logging.error("Failed creation of %s with the following error:", d)
             logging.error("%s %s", e[0], e[1])
-            raise  # Rilancio l'eccezione in modo che l'utilizzatore del modulo decida cosa fare
+            raise  # Reraising exception to permit library user to choose what to do
     else:
         try:
             logging.info("Directory %s existing, setting permissions", d)
-            # Forzo i permessi con chmod in quanto su unix
-            # c'e' una maschera in fase di creazione
+            # Need to be sure of permission
+            # without checks them
             os.chmod(d, dp)
             logging.info("Permessions %s changed", dp)
         except OSError as e:
             logging.error("Permissions %s not changed for the following error:", dp)
             logging.error("%s %s", e[0], e[1])
-            raise  # Rilancio l'eccezione in modo che l'utilizzatore del modulo decida cosa fare
+            raise  # Reraising exception to permit library user to choose what to do
 
 
 def bytes2human(n, formatter="%(value)i%(symbol)s"):
@@ -141,7 +141,7 @@ def is_executed_by_user(u):
     """
     Check if the script was executed by passed user
     Arguments
-        userid: userid or username to check
+        userid -- userid or username to check
     """
     if isinstance(u, str):
         user = username2uid(u)
@@ -167,12 +167,12 @@ def is_distro(distros=None, check_version=True, check_minor_release=False):
     Check if the current linux distribution is in a specified distros
     dictionary
     Arguments
-        distros: a dictionary of distributions or a list of them with which will be made the check
+        distros -- a dictionary of distributions or a list of them with which will be made the check
                  NB: in dictionary definition you HAVE to put also MAJOR/MAIN version, example:
                      {"Ubuntu": ["12.10"]} is wrong
                      {"Ubuntu": ["12", "12.10"]} is right
-        check_version: if True checks major version like 5 (Default: True)
-        check_minor_release: if True check also the minor release part of the version like 5.6
+        check_version -- if True checks major version like 5 (Default: True)
+        check_minor_release -- if True check also the minor release part of the version like 5.6
     """
     # No dictionary passed to the function
     if distros is None:
@@ -226,8 +226,6 @@ def is_vsdistro():
 # TODO LatencyList
 # Using decorators or @propriety force used_latencies to be less or equal of max_width
 # http://stackoverflow.com/questions/17330160/python-how-does-the-property-decorator-work
-
-
 class LatencyList:
     """
     Manages and elaborates a list of latencies
@@ -313,7 +311,7 @@ class LatencyList:
         """
         Return a list of last N latencies where N is "used_latencies"
         If you need the list for calculation probably you want to enable the cropping
-            crop - if True remove every "None" in the list and return list cleaned. Usefull for calculation.
+            crop -- if True remove every "None" in the list and return list cleaned. Usefull for calculation.
         """
         if crop:
             return self.crop_latencies(self.latencies[-self.used_latencies:])
