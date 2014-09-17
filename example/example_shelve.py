@@ -37,7 +37,7 @@ print "This is now %s" % t1.name
 print str(t1)
 print "-------------------"
 print "%s in near to die. We need to save him!" % t1.name
-s1 = shelve.open("myturtle.txt")
+s1 = shelve.open("example_shelve/myturtle.txt")
 s1[t1.name] = t1
 s1.close()
 print "Saved. I will remember your name forever"
@@ -46,7 +46,7 @@ del t1
 print "%s is dead."
 print "-------------------"
 print "We are going to create a new turtle old one based"
-s2 = shelve.open("myturtle.txt")
+s2 = shelve.open("example_shelve/myturtle.txt")
 t2 = s2[FIRST_TURTLE_NAME]
 print "-------------------"
 print "This is the new %s!!!!" % FIRST_TURTLE_NAME
