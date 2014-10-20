@@ -9,6 +9,11 @@ class ElementsError(Exception):
         self.msg = arg
 
 
+class ReplaceError(Exception):
+    def __init__(self, arg):
+        self.msg = arg
+
+
 class Grid:
     """
     Description
@@ -28,37 +33,81 @@ class Grid:
         elements --  an user defined dict with all the elements and theirs coordinates. If None was given all
                      types of object are permitted.
                      Example: {(1,1,1):'a', (1,2,5):'a', (67,2,123):'z'}
+                     Default: None
+
         elements_table -- list of permitted Objects(elements) in the "space". If None, all is permitted.
+                          Default: None
+
         grid_size -- the grid size rappresented by a tuple composed by x,y and z. Set z to 1 means a 2d grid.
+                     Default: (10,10,10)
+
+        position_overwriting -- if True permits the replace of elements in a position by new ones.
+                                Void spaces are fillable also with False.
+    Checks and Rules:
+        You can't add an "element" to the "space" if:
+            - it's out of bounds (its coordinates must be > 0,
+            -
+
+
+    DocTest
+    >>> g = Grid()
+    >>> g.is_empty((1,1,1))
+    True
+    >>> g.is_empty((1234, 1234, 1234))
+    True
+    >>> g.place({(1, 2, 3): 'a'})
+    None
+    >>> len(Grid.get_neighbours_coordinates((1, 1, 1), 3))
+    7
+    >>> len(Grid.get_neighbours_coordinates((2, 2, 2), 3))
+    26
+    >>> len(Grid.get_neighbours_coordinates((2, 1, 1), 3))
+    11
+    >>> len(Grid.get_neighbours_coordinates((3, 3, 3), 3))
+    7
+    >>> len(Grid.get_neighbours_coordinates((1, 1, 1), 5))
+    26
+    >>> len(Grid.get_neighbours_coordinates((3, 3, 3), 5))
+    124
+    >>> len(Grid.get_neighbours_coordinates((3, 1, 1), 5))
+    44
+    >>> len(Grid.get_neighbours_coordinates((1, 1, 1), 5))
+    26
     """
 
-    def __init__(self, elements=None, elements_table=None, grid_size=(10, 10, 10)):
+    def __init__(self, elements=None, elements_table=None, grid_size=(10, 10, 10), position_overwriting=True):
         # Obtain only positive integer (natural) numbers for the grid size
         max_x = abs(int(tuple(grid_size)[0]))
         max_y = abs(int(tuple(grid_size)[1]))
         max_z = abs(int(tuple(grid_size)[2]))
         self.grid_size = (max_x, max_y, max_z)
+        self.position_overwriting = bool(position_overwriting)
         self.elements_table = elements_table
 
-        # Controllare correttezza di:
-        #     - che i valori delle coordinate siano numberi naturali)
-        #     - spazio (deve essere dentro le coordinate massime)
-        #     - che gli elementi nel dizionario elements siano in elements_table
+        if elements is None:  # No {coordinates:elements} dictionary at Grid creation -> void dictionary
+            self.space = {}
+        else:  # They pass me a dictionary of {coordinates:elements} at Grid creation
+            # checking out_of_bounds
+            for coordinates in elements:
+                try:
+                    current_element = elements[coordinates]
+                    current_coordinates = coordinates
+                    Grid.ensure_integer_coordinates(current_coordinates)
+                    if Grid.is_out_of_bounds(coordinates, grid_size):
+                        raise CoordinatesError(["Coordinates {0} of the '{1}' element are out of bounds."
+                                                .format(current_coordinates, current_element),
+                                                {current_coordinates: current_element}])
+                    # checking elements_table
+                    elif not Grid.exist(current_element, self.elements_table):
+                        raise ElementsError(["The element '{0}' does not exist in elements_table."
+                                             .format(current_element),
+                                             {current_coordinates: current_element}])
+                except (CoordinatesError, ElementsError) as exc:
+                    # For debug
+                    # print exc.msg[0]
+                    raise
 
-        # checking out_of_bounds
-        for coordinates in elements:
-            current_element = elements[coordinates]
-            current_coordinates = coordinates
-            if Grid.is_out_of_bounds(coordinates, grid_size):
-                raise CoordinatesError(["Coordinates {0} of the '{1}' element are out of bounds."
-                                        .format(current_coordinates, current_element),
-                                        current_coordinates, current_element])
-            # checking elements_table
-            elif not Grid.exist(current_element, self.elements_table):
-                raise ElementsError(["The element '{0}' does not exist in elements_table."
-                                     .format(current_element),
-                                     current_element, current_coordinates])
-        self.space = dict(elements)
+            self.space = dict(elements)
 
     def __str__(self):
         r = "Grid size:" + \
@@ -68,14 +117,78 @@ class Grid:
             "\n\nSpace: " + str(self.space) + "\n"
         return r
 
+    def place(self, elements, ignore_invalid=True):
+        """
+        Add the given elements in the given coordinates. If replace is True any other element in that coordinates will
+        be replaced.
+        :param elements: dictionary of elements in the {(x,y,z):'myelement'} format
+        :param ignore_invalid: if True, simply avoid to add invalid coordinates:element without re-raise Exceptions
+                               Default: False
+        """
+
+        for coordinates in elements:
+            current_element = elements[coordinates]
+            current_coordinates = coordinates
+            # For debug
+            # print "\n\nCurrent: \t{0}->\t{1}".format(current_coordinates, current_element)
+            try:
+                Grid.ensure_integer_coordinates(current_coordinates)  # if not integers, CoordinatesError will be raised
+                if Grid.is_out_of_bounds(coordinates, self.grid_size):  # avoid out_of_bounds elements
+                    raise CoordinatesError(["Coordinates {0} of the '{1}' element are out of bounds."
+                                            .format(current_coordinates, current_element),
+                                            {current_coordinates: current_element}])
+                elif not Grid.exist(current_element, self.elements_table):  # avoid elements not in
+                    raise ElementsError(["The element '{0}' does not exist in elements_table."
+                                         .format(current_element),
+                                         {current_coordinates: current_element}])
+                elif not self.is_empty and not self.position_overwriting:
+                    raise ReplaceError(["Coordinates {0} are not empty and replacing/overwriting is not permitted"
+                                        .format(current_coordinates),
+                                        {current_coordinates: current_element}])
+                else:  # Aggiungo il valore
+                    self.space.update({current_coordinates: current_element})
+            except (CoordinatesError, ElementsError, ReplaceError) as exc:
+                # For debug
+                # print exc.msg[0]
+                if not ignore_invalid:
+                    #print "Blocking the loop. Remaining elements will be not added."
+                    raise
+                else:
+                    #print "Avoid adding last element at those coordinates. Going on.."
+                    continue
+
+        return True
+
+    @staticmethod
+    def ensure_integer_coordinates(coordinates):
+        """
+        Ensure that given coordinates are integer numbers
+        :param coordinates: tuple with 3 coordinates in the (x,y,z) form
+        CoordinatesError exception will be raised if any of given coordinates is not integer
+        """
+        if isinstance(coordinates[0], int) and isinstance(coordinates[1], int) and isinstance(coordinates[2], int):
+            return True
+        else:
+            raise CoordinatesError(["Coordinates {0} MUST be integer numbers. They don't seem to be."
+                                    .format(coordinates),
+                                    coordinates])
+
     def is_empty(self, coordinates):
         """
         Check if there is an element at given coordinates (no element definition in space dictionary)
+        :param coordinates: tuple of coordinates in the (x, y, z) style, or list of them.
         """
-        if tuple(coordinates) in self.space:  # if in space dictionary there is not a definition "coordinates: elements"
-            return False                      # means it must be an empty position (void filled)
-        else:
-            return True
+        if isinstance(coordinates, list):  # if they pass me a list of coordinates tuple
+            for single_coordinates in coordinates:
+                if tuple(single_coordinates) in self.space:  # searching in space dictionary for the coordinates. If we
+                    return False                             # find one means it is occupy
+                else:
+                    return True
+        else:  # they pass me a single coordinates tuple
+            if tuple(coordinates) in self.space:
+                return False
+            else:
+                return True
 
     @staticmethod
     def exist(element, elements_table=None):
@@ -140,6 +253,7 @@ class Grid:
         :param coordinates: a 3 element tuple like (x,y,z) rappresenting element coordinates (example: (5,3,2) )
         :param neighbours_cube_range: side lenght of an immaginary cube builded around "coordinates" element.
                                       this value MUST BE ODD POSITIVE NUMBER (otherwise there is not a perfect center)
+                                      (default: 3)
         :return: a list of tuple where a single tuple rappresent the coordinates around the the element given
         """
         # If even number we dont return anything
@@ -189,9 +303,9 @@ class Grid:
                             # ensure to return neighbours only (not coords themself)
                             neighbours.append((column, row, layer))
                         # else: ====================FOR DEBUGGING====================
-                        #    print "%s sono le stesse coordinate passate" % str((column, row, layer))
+                        #    print "%s are the same coordinates given to this method" % str((column, row, layer))
                     # else: ====================FOR DEBUGGING====================
-                    #    print "%s e' fuori dai limiti" % str((column, row, layer))
+                    #    print "%s is out of bounds" % str((column, row, layer))
                     x_variator += 1
 
                 y_variator += 1
@@ -201,47 +315,41 @@ class Grid:
         return neighbours
 
 
-elementi = {(2, 1, 2): 'c', (1, 1, 1): 'a', (1, 1, 3): 'a', (3, 1, 1): 'a', (3, 1, 3): 'c'}
-dizionario_a = [1, 2, 3, 'a', 'b', 'c']
-dizionario_b = ['b']
+if __name__ == "__main__":
+    elementi = {(2, 1, 2): 'c', (1, 1, 1): 'a', (1, 1, 3): 'a', (3, 1, 1): 'a', (3, 1, 3): 'c'}
+    dizionario_a = [1, 2, 3, 'a', 'b', 'c']
+    dizionario_b = ['b']
 
-print "\n\n====TEST init()===="
-dimensioni = (3, 3, 3)
-print "Trying a Grid creation with these elements:\n\t{0}\nand these dimensions:\n\t{1}".format(elementi, dimensioni)
-try:
-    g = Grid(elementi, dizionario_a, grid_size=dimensioni)
-except (CoordinatesError, ElementsError) as e:
-    print "..."
-    print "Grid creation failed. Details:\n{}".format(e.msg[0])
-    # To get other variable in the exception CoordinatesError
-    #print e.msg[1], e.msg[2]
-else:
-    print "..."
-    print "Grid successfully created: \n%s\n" % g
+    print "\n\n====TEST init()===="
+    dimensioni = (3, 3, 3)
+    print "Trying a Grid creation with these elements:\n\t{0}\nand these dimensions:\n\t{1}".format(elementi, dimensioni)
+    try:
+        g = Grid(elementi, dizionario_a, grid_size=dimensioni)
+    except (CoordinatesError, ElementsError) as e:
+        print "..."
+        print "Grid creation failed. Details:\n{}".format(e.msg[0])
+        # To get other variable in the exception CoordinatesError
+        #print e.msg[1], e.msg[2]
+    else:
+        print "..."
+        print "Grid successfully created: \n%s\n" % g
 
+    print "\n\n====TEST get_neighbours_coordinates()===="
+    c = Grid.get_neighbours_coordinates((1, 1, 1), 3)
+    print c
+    print len(c)
 
-print "\n\n====TEST get_neighbours_coordinates()===="
-c = Grid.get_neighbours_coordinates((1, 1, 1), 3)
-print c
-print len(c)
+    print "\n\n====TEST is_out_of_bounds()===="
+    cordlist = []
+    for tupla in elementi:
+        cordlist.append(tupla)
 
+    print cordlist
+    if Grid.is_out_of_bounds(cordlist, (3, 1, 3)):
+        print "Not valid values"
 
-print "\n\n====TEST is_out_of_bounds()===="
-cordlist = []
-for tupla in elementi:
-    cordlist.append(tupla)
-
-print cordlist
-if Grid.is_out_of_bounds(cordlist, (3, 1, 3)):
-    print "ci sono velori non validi"
-
-# Prove per scartare le coordinate fuori piano cartesiano
-"""d = []
-for elem in c:
-    if not (elem[0] <= 0 or elem[1] <= 0 or elem[2] <= 0):
-        d.append(elem)
-
-
-print d
-print len(d)
-"""
+    print "\n\n====TEST place()===="
+    print g
+    #Space: {(1, 1, 3): 'a', (1, 1, 1): 'a', (3, 1, 1): 'a', (2, 1, 2): 'c', (3, 1, 3): 'c'}
+    g.place({(25, 1, 3): 'C', (3, 3, 2): 'z', (2.3, 3, 3): 'c'})
+    print g
