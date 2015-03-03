@@ -322,7 +322,8 @@ if __name__ == "__main__":
 
     print "\n\n====TEST init()===="
     dimensioni = (3, 3, 3)
-    print "Trying a Grid creation with these elements:\n\t{0}\nand these dimensions:\n\t{1}".format(elementi, dimensioni)
+    print "Trying a Grid creation with these elements:\n\t{0}\nand these dimensions:\n\t{1}"\
+        .format(elementi, dimensioni)
     try:
         g = Grid(elementi, dizionario_a, grid_size=dimensioni)
     except (CoordinatesError, ElementsError) as e:
